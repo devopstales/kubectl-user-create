@@ -32,7 +32,7 @@ jobs:
           GOOS: windows
           GOARCH: amd64
         run: |
-          go build -o dist/windows/kubectl-user-create main.go
+          go build -o dist/windows/kubectl-user-create.exe main.go
 
       - name: Build OSX Intel
         env:
