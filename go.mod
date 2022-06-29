@@ -1,6 +1,6 @@
 module github.com/devopstales/kubectl-user-create
 
-go 1.14
+go 1.17
 
 require (
 	github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96 // indirect
