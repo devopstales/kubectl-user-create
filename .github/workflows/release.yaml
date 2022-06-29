@@ -1,0 +1,121 @@
+name: Release
+on:
+  push:
+    tags:
+      - "*.*"
+
+jobs:
+  # The “build” workflow 
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ‘1.14.0’
+
+      - name: Check out source code
+        uses: actions/checkout@v1
+
+      - name: Build Linux
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          CGO_ENABLED: 0
+        run: |
+          mkdir -p dist/{windows,linux,osx,release}
+          go build -o dist/linux/kubectl-user-create main.go
+
+      - name: Build Windows
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          CGO_ENABLED: 0
+          GOOS: windows
+          GOARCH: amd64
+        run: |
+          go build -o dist/windows/kubectl-user-create main.go
+
+      - name: Build OSX Intel
+        env:
+          GOPROXY: "https://proxy.golang.org"
+          CGO_ENABLED: 0
+          GOOS: darwin
+          GOARCH: amd64
+        run: |
+          go build -o dist/osx/kubectl-user-create main.go
+
+      - name: Package
+        run: |
+          cd dist/linux
+          cp ../../LICENSE .
+          chmod +x kubectl-user-create
+          tar -czf kubectl-user-create_${{github.ref_name}}_Linux-amd64bit.tar.gz kubectl-user-create LICENSE
+          mv kubectl-user-create_${{github.ref_name}}_Linux-amd64bit.tar.gz ../release
+          cd ../osx/
+          cp ../../LICENSE .
+          chmod +x kubectl-user-create
+          tar -czf kubectl-user-create_${{github.ref_name}}_Darwin-amd64bit.tar.gz kubectl-user-create LICENSE
+          mv kubectl-user-create_${{github.ref_name}}_Darwin-amd64bit.tar.gz ../release
+          cd ../windows/
+          cp ../../LICENSE .
+          tar -czf kubectl-user-create_${{github.ref_name}}_Windows-amd64bit.tar.gz kubectl-user-create.exe
+          mv kubectl-user-create_${{github.ref_name}}_Windows-amd64bit.tar.gz ../release
+          cd ../release
+          sha256sum kubectl-user-create_${{github.ref_name}}_Linux-amd64bit.tar.gz > kubectl-user-create_checksums.txt
+          sha256sum kubectl-user-create_${{github.ref_name}}_Darwin-amd64bit.tar.gz >> kubectl-user-create_checksums.txt
+          sha256sum kubectl-user-create_${{github.ref_name}}_Windows-amd64bit.tar.gz >> kubectl-user-create_checksums.txt
+          ls -laF
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{github.ref_name}}
+          release_name: Release ${{github.ref_name}}
+          body: |
+            Changes in this Release
+            - First Change
+            - Second Change
+          draft: true
+          prerelease: false
+
+      - name: upload linux artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/release/kubectl-user-create_${{github.ref_name}}_Linux-amd64bit.tar.gz
+          asset_name: kubectl-user-create_${{github.ref_name}}_Linux-amd64bit.tar.gz
+          asset_content_type: application/gzip
+
+      - name: upload OSX artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/release/kubectl-user-create_${{github.ref_name}}_Darwin-amd64bit.tar.gz
+          asset_name: kubectl-user-create_${{github.ref_name}}_Darwin-amd64bit.tar.gz
+          asset_content_type: application/gzip
+
+      - name: upload Windows artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/release/kubectl-user-create_${{github.ref_name}}_Windows-amd64bit.tar.gz
+          asset_name: kubectl-user-create_${{github.ref_name}}_Windows-amd64bit.tar.gz
+          asset_content_type: application/gzip
+
+      - name: upload artifact checksums
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/release/kubectl-user-create_checksums.txt
+          asset_name: kubectl-user-create_checksums.txt
+          asset_content_type: text/plain
